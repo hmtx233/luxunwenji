@@ -27,6 +27,7 @@ npm run docs:preview  # 本地预览构建产物
 npm run stats         # 重新统计篇目/字数，写入首页数据
 npm run order         # 按 config.mts 的 order 重排文集首页的「篇目」列表
 npm run verify:order  # 校验各文集排序结果与覆盖率
+npm run submit:baidu  # 向百度主动推送 sitemap 里的 URL（需 token，见「搜索引擎收录」）
 ```
 
 > 注：本机 `npm run` 可能因安全策略拦截 `wsl.exe` 而失败，
@@ -149,10 +150,65 @@ npm run verify:order # 检查有无遗漏、是否还有靠拼音兜底的条目
 - `sitemap` — 构建时自动生成 `sitemap.xml`
 - `transformPageData` — 为每页生成独立的 `description` 与 `canonical`
 
-部署后请确认 `dist/sitemap.xml` 已生成，并向搜索引擎提交：
+部署后请确认 `dist/sitemap.xml` 已生成（约 595 条 URL，见下文「搜索引擎收录」）。
 
-- 百度搜索资源平台 <https://ziyuan.baidu.com>
-- Google Search Console <https://search.google.com/search-console>
+## 搜索引擎收录
+
+### 已就绪的部分
+
+- `docs/public/robots.txt` — `Allow: /` 并指向 sitemap，构建后位于站点根目录
+- `sitemap.xml` — 构建时由 `sitemap: { hostname }` 自动生成，约 595 条 URL
+- 每页独立 `description` 与 `canonical`（由 `transformPageData` 生成）
+- 站长平台验证 meta（默认**不输出**，需配置验证码，见下）
+
+### 1. 填验证码
+
+验证码支持环境变量（推荐，不进仓库）或直接写在 `config.mts` 的 `SEARCH_CONSOLE`：
+
+```bash
+GOOGLE_SITE_VERIFICATION=<GSC 给的 content 值> \
+BAIDU_SITE_VERIFICATION=<code-xxxxxx> \
+  node node_modules/vitepress/bin/vitepress.js build docs
+```
+
+- **Google Search Console**：添加资源选「网址前缀」`https://luxunwenji.com` →
+  验证方式选「HTML 标记」→ 复制 `content="…"` 里的值
+- **百度搜索资源平台**：添加站点 `https://luxunwenji.com` →
+  验证方式选「HTML 标签验证」→ 把 `code-xxxxxx` 整串填进来
+
+两者都留空时不会渲染空 meta 标签（空标签会被判定为验证失败）。
+改完记得重新 build 并部署，再回站长平台点「验证」。
+
+### 2. 提交 sitemap / 链接
+
+**Google**
+
+- Search Console →「站点地图」提交 `sitemap.xml`（完整地址 `https://luxunwenji.com/sitemap.xml`）
+- 新站收录慢，可用「网址检查 → 请求编入索引」手动催几个核心页
+  （如 `/`、`/novels/nahan/狂人日记`）
+
+**百度**（三种方式，建议全开）
+
+1. 「普通收录 → sitemap」提交 `https://luxunwenji.com/sitemap.xml`
+2. 「普通收录 → API 提交」拿 token，用本站脚本主动推送：
+
+   ```bash
+   npm run submit:baidu -- --token=<token> --limit 10   # 先用 10 条试
+   npm run submit:baidu -- --token=<token>              # 确认无误再全量（595 条）
+   npm run submit:baidu -- --dry-run                    # 只看会推什么，不联网
+   ```
+
+   脚本从 `dist/sitemap.xml` 读 URL（也可 `--sitemap=<本地路径|URL>`），
+   每批 100 条推送，并打印当日剩余配额 `remain`；配额为 0 会自动停。
+3. 「普通收录 → 手动提交」把几个重点页面贴进去（新站配额通常只有几条/天）
+
+> ⚠️ **百度收录的现实情况**：百度对**未 ICP 备案**的站点收录意愿很低，
+> 且本站托管在境外（Cloudflare），百度爬虫抓取速度和频次都会打折。
+> 想认真做百度，需要域名备案 + 国内节点；否则以 Google / Bing 为主更实际。
+
+> 补充：Bing / Yandex / Naver 可走 [IndexNow](https://www.indexnow.org/)，
+> Google 不支持 IndexNow，其 sitemap ping 接口也已在 2023 年下线，
+> 所以 Google 侧只能靠 Search Console 手动提交。
 
 ## 版面与字体
 

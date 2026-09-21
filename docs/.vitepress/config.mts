@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import type { HeadConfig } from 'vitepress'
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,6 +9,40 @@ const docsRoot = resolve(configDir, '..')
 
 const SITE_URL = 'https://luxunwenji.com'
 const SITE_NAME = '鲁迅文集'
+
+/**
+ * 搜索引擎站长平台的所有权验证码。
+ *
+ * 优先读环境变量，其次用下面写死的值；**两者都为空则不输出该 meta**
+ * （空标签会被站长平台判定为验证失败，还不如不输出）。
+ *
+ * - Google Search Console：选「HTML 标记」方式，取 content="..." 里的值
+ * - 百度搜索资源平台：选「HTML 标签验证」，把 code-xxxxxx 整串填进来
+ *
+ * 例：GOOGLE_SITE_VERIFICATION=abc123 BAIDU_SITE_VERIFICATION=code-xyz789 npm run docs:build
+ */
+const SEARCH_CONSOLE = {
+  google: process.env.GOOGLE_SITE_VERIFICATION || '',
+  baidu: process.env.BAIDU_SITE_VERIFICATION || '',
+}
+
+/** 生成站长平台验证 meta（缺省则不生成） */
+function verificationTags(): HeadConfig[] {
+  const tags: HeadConfig[] = []
+  if (SEARCH_CONSOLE.google) {
+    tags.push([
+      'meta',
+      { name: 'google-site-verification', content: SEARCH_CONSOLE.google },
+    ])
+  }
+  if (SEARCH_CONSOLE.baidu) {
+    tags.push([
+      'meta',
+      { name: 'baidu-site-verification', content: SEARCH_CONSOLE.baidu },
+    ])
+  }
+  return tags
+}
 
 interface Collection {
   dir: string
@@ -283,6 +318,8 @@ export default defineConfig({
     ['meta', { name: 'author', content: '鲁迅' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: SITE_NAME }],
+    // 站长平台验证（Google / 百度），未配置验证码时不输出
+    ...verificationTags(),
   ],
   markdown: {
     theme: { light: 'github-light', dark: 'github-dark' },

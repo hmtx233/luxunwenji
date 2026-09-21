@@ -61,6 +61,20 @@ volume: 呐喊
    晚于 VitePress 自带的 `.content-container[data-v-*]{max-width:688px}`，可覆盖）。
    同时 **`.vp-doc` 自身不要再限宽**，否则 38em 会先把行宽截断。
 
+## SEO / 收录
+- 每页 `description` 与 `canonical` 由 `config.mts` 的 `transformPageData` 生成
+  （**必须直接赋值**，不可累加，见坑 1）
+- `robots.txt` 在 `docs/public/`，指向 `https://luxunwenji.com/sitemap.xml`
+- 站长平台验证码走环境变量（不进仓库）：
+  `GOOGLE_SITE_VERIFICATION` / `BAIDU_SITE_VERIFICATION`，
+  为空则不输出 meta（**不要**输出空标签，会被判定验证失败）
+- 百度主动推送：`node scripts/submit-baidu.mjs --token=xxx [--limit=10]`
+  （token 也可用 `BAIDU_TOKEN`），从 `dist/sitemap.xml` 读 URL
+- 注意：站点未 ICP 备案且在境外（Cloudflare），百度收录效果天然受限；
+  Google 无 sitemap ping 接口（已下线），只能 Search Console 手动提交
+- 本机 DNS 解析 luxunwenji.com 会超时，验证线上时用
+  `curl --resolve luxunwenji.com:443:104.21.90.72 https://…`
+
 ## 构建
 ```bash
 node scripts/gen-stats.mjs                      # 生成首页统计
