@@ -16,69 +16,15 @@
  * - 配额有限，先小批量试推（--limit 10），确认返回 success 后再全量。
  */
 
-import { readFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import {
+  DEFAULT_SITE,
+  parseArgs,
+  extractUrls,
+  loadSitemap,
+  chunk,
+} from './lib/cli.mjs'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const DEFAULT_SITEMAP = resolve(ROOT, 'docs/.vitepress/dist/sitemap.xml')
-const DEFAULT_SITE = 'https://luxunwenji.com'
 const ENDPOINT = 'http://data.zz.baidu.com/urls'
-
-/** 需要取值的参数；其余按开关处理（也兼容 --key=value 写法） */
-const VALUE_KEYS = new Set(['token', 'site', 'sitemap', 'batch', 'limit'])
-
-function parseArgs(argv) {
-  const args = { _: [] }
-  for (let i = 0; i < argv.length; i++) {
-    const raw = argv[i]
-    const m = /^--([^=]+)(?:=(.*))?$/.exec(raw)
-    if (!m) {
-      args._.push(raw)
-      continue
-    }
-    const key = m[1]
-    if (m[2] !== undefined) {
-      args[key] = m[2]
-    } else if (VALUE_KEYS.has(key) && argv[i + 1] && !argv[i + 1].startsWith('--')) {
-      args[key] = argv[++i]
-    } else {
-      args[key] = true
-    }
-  }
-  return args
-}
-
-/** 从 sitemap 文本里抽出所有 <loc>，并还原 XML 实体 */
-function extractUrls(xml) {
-  const urls = []
-  for (const m of xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
-    urls.push(
-      m[1]
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'"),
-    )
-  }
-  return urls
-}
-
-async function loadSitemap(source) {
-  if (/^https?:\/\//i.test(source)) {
-    const res = await fetch(source)
-    if (!res.ok) throw new Error(`拉取 sitemap 失败：HTTP ${res.status} ${source}`)
-    return res.text()
-  }
-  if (!existsSync(source)) {
-    throw new Error(
-      `找不到 ${source}\n请先构建：node node_modules/vitepress/bin/vitepress.js build docs`,
-    )
-  }
-  return readFile(source, 'utf8')
-}
 
 async function pushBatch(urls, { site, token }) {
   const res = await fetch(
@@ -104,25 +50,22 @@ async function pushBatch(urls, { site, token }) {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2))
+  const args = parseArgs(process.argv.slice(2), ['token', 'site', 'sitemap', 'batch', 'limit'])
   const site = args.site || DEFAULT_SITE
   const token = args.token || process.env.BAIDU_TOKEN || ''
-  const sitemap = args.sitemap || DEFAULT_SITEMAP
+  const sitemap = args.sitemap
   const batchSize = Number(args.batch || 100)
   const dryRun = Boolean(args['dry-run'])
 
   const xml = await loadSitemap(sitemap)
-  let urls = extractUrls(xml)
-  if (!urls.length) throw new Error(`sitemap 中没有解析到 <loc>：${sitemap}`)
-
-  // 去重并保序
-  urls = [...new Set(urls)]
+  const urls = extractUrls(xml)
+  if (!urls.length) throw new Error(`sitemap 中没有解析到 <loc>：${sitemap || 'dist/sitemap.xml'}`)
 
   const limit = args.limit ? Number(args.limit) : urls.length
   const todo = urls.slice(0, limit)
 
   console.log(`站点      : ${site}`)
-  console.log(`sitemap   : ${sitemap}`)
+  console.log(`sitemap   : ${sitemap || 'docs/.vitepress/dist/sitemap.xml'}`)
   console.log(`解析到    : ${urls.length} 条 URL`)
   console.log(`本次提交  : ${todo.length} 条（--limit ${limit}）`)
   console.log(`分批      : 每批 ${batchSize} 条`)
@@ -143,9 +86,9 @@ async function main() {
   let success = 0
   let remain = null
 
-  for (let i = 0; i < todo.length; i += batchSize) {
-    const batch = todo.slice(i, i + batchSize)
-    const label = `[${i + 1}-${i + batch.length}/${todo.length}]`
+  for (const [i, batch] of chunk(todo, batchSize).entries()) {
+    const from = i * batchSize + 1
+    const label = `[${from}-${from + batch.length - 1}/${todo.length}]`
     process.stdout.write(`${label} 提交中… `)
     const { status, json } = await pushBatch(batch, { site, token })
 

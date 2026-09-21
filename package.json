@@ -7,6 +7,7 @@
     "order": "node scripts/reorder-index.mjs",
     "verify:order": "node scripts/verify-order.mjs",
     "submit:baidu": "node scripts/submit-baidu.mjs",
+    "submit:indexnow": "node scripts/submit-indexnow.mjs",
     "predev": "npm run stats",
     "docs:dev": "vitepress dev docs",
     "prebuild": "npm run stats",

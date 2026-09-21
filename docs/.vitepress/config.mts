@@ -18,29 +18,26 @@ const SITE_NAME = '鲁迅文集'
  *
  * - Google Search Console：选「HTML 标记」方式，取 content="..." 里的值
  * - 百度搜索资源平台：选「HTML 标签验证」，把 code-xxxxxx 整串填进来
+ * - Bing 网站管理员工具：选「HTML Meta 标签」，取 content="..." 里的值
+ *   （也可直接用「从 Google Search Console 导入」，那种方式不需要本 meta）
  *
  * 例：GOOGLE_SITE_VERIFICATION=abc123 BAIDU_SITE_VERIFICATION=code-xyz789 npm run docs:build
  */
 const SEARCH_CONSOLE = {
   google: process.env.GOOGLE_SITE_VERIFICATION || '',
   baidu: process.env.BAIDU_SITE_VERIFICATION || '',
+  bing: process.env.BING_SITE_VERIFICATION || '',
 }
 
 /** 生成站长平台验证 meta（缺省则不生成） */
 function verificationTags(): HeadConfig[] {
   const tags: HeadConfig[] = []
-  if (SEARCH_CONSOLE.google) {
-    tags.push([
-      'meta',
-      { name: 'google-site-verification', content: SEARCH_CONSOLE.google },
-    ])
+  const push = (name: string, content: string) => {
+    if (content) tags.push(['meta', { name, content }])
   }
-  if (SEARCH_CONSOLE.baidu) {
-    tags.push([
-      'meta',
-      { name: 'baidu-site-verification', content: SEARCH_CONSOLE.baidu },
-    ])
-  }
+  push('google-site-verification', SEARCH_CONSOLE.google)
+  push('baidu-site-verification', SEARCH_CONSOLE.baidu)
+  push('msvalidate.01', SEARCH_CONSOLE.bing)
   return tags
 }
 

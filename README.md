@@ -28,6 +28,7 @@ npm run stats         # 重新统计篇目/字数，写入首页数据
 npm run order         # 按 config.mts 的 order 重排文集首页的「篇目」列表
 npm run verify:order  # 校验各文集排序结果与覆盖率
 npm run submit:baidu  # 向百度主动推送 sitemap 里的 URL（需 token，见「搜索引擎收录」）
+npm run submit:indexnow  # 向 Bing/Yandex 等推送（IndexNow 协议，见「搜索引擎收录」）
 ```
 
 > 注：本机 `npm run` 可能因安全策略拦截 `wsl.exe` 而失败，
@@ -168,6 +169,7 @@ npm run verify:order # 检查有无遗漏、是否还有靠拼音兜底的条目
 ```bash
 GOOGLE_SITE_VERIFICATION=<GSC 给的 content 值> \
 BAIDU_SITE_VERIFICATION=<code-xxxxxx> \
+BING_SITE_VERIFICATION=<Bing 给的 content 值> \
   node node_modules/vitepress/bin/vitepress.js build docs
 ```
 
@@ -175,8 +177,11 @@ BAIDU_SITE_VERIFICATION=<code-xxxxxx> \
   验证方式选「HTML 标记」→ 复制 `content="…"` 里的值
 - **百度搜索资源平台**：添加站点 `https://luxunwenji.com` →
   验证方式选「HTML 标签验证」→ 把 `code-xxxxxx` 整串填进来
+- **Bing 网站管理员工具**：选「HTML Meta 标签」→ 复制 `content="…"` 里的值
+  （它渲染为 `msvalidate.01`）。也可改用「从 Google Search Console 导入」，
+  那种方式不需要本 meta
 
-两者都留空时不会渲染空 meta 标签（空标签会被判定为验证失败）。
+三者都留空时不会渲染空 meta 标签（空标签会被判定为验证失败）。
 改完记得重新 build 并部署，再回站长平台点「验证」。
 
 ### 2. 提交 sitemap / 链接
@@ -202,13 +207,39 @@ BAIDU_SITE_VERIFICATION=<code-xxxxxx> \
    每批 100 条推送，并打印当日剩余配额 `remain`；配额为 0 会自动停。
 3. 「普通收录 → 手动提交」把几个重点页面贴进去（新站配额通常只有几条/天）
 
+**Bing**（推荐直接用 IndexNow，见下一节）
+
+- Bing 网站管理员工具 →「站点地图」提交 `https://luxunwenji.com/sitemap.xml`
+- 「URL 提交」有每日配额，用 IndexNow 更省事
+
 > ⚠️ **百度收录的现实情况**：百度对**未 ICP 备案**的站点收录意愿很低，
 > 且本站托管在境外（Cloudflare），百度爬虫抓取速度和频次都会打折。
 > 想认真做百度，需要域名备案 + 国内节点；否则以 Google / Bing 为主更实际。
 
-> 补充：Bing / Yandex / Naver 可走 [IndexNow](https://www.indexnow.org/)，
-> Google 不支持 IndexNow，其 sitemap ping 接口也已在 2023 年下线，
-> 所以 Google 侧只能靠 Search Console 手动提交。
+### 3. IndexNow（Bing / Yandex / Naver / Seznam 共用）
+
+IndexNow 只需提交一次，参与协议的引擎会互通；**Google 不支持 IndexNow**，
+其 sitemap ping 接口也已在 2023 年下线，所以 Google 侧只能靠 Search Console 手动提交。
+
+原理：把一个密钥文本放在站点根（`https://luxunwenji.com/<key>.txt`，内容即密钥），
+之后向接口 POST 就能宣告「这些 URL 变了」。本站把它放在 `docs/public/`，随站点一起部署。
+
+```bash
+npm run submit:indexnow -- --generate   # 只需一次：生成 docs/public/<key>.txt 密钥文件
+# → 构建并部署，确认密钥可访问：
+curl -s https://luxunwenji.com/<key>.txt   # 应原样返回密钥
+
+npm run submit:indexnow -- --dry-run    # 只看会提交什么，不联网
+npm run submit:indexnow --              # 全量提交（595 条，单批完成）
+npm run submit:indexnow -- --limit 20   # 或只提交前 20 条
+```
+
+- 端点默认 `https://api.indexnow.org/indexnow`（转发给所有参与引擎）；
+  可加 `--endpoint=https://www.bing.com/indexnow` 只提交 Bing
+- 返回码：`200` / `202` 成功（202 = 已接收，密钥待校验）、
+  `403` 密钥无效（密钥文件未部署或内容不一致）、`422` URL 不属于该 host、
+  `429` 提交过于频繁
+- 密钥文件没部署就提交会返回 `403 SiteVerificationNotCompleted`，属预期
 
 ## 版面与字体
 

@@ -66,10 +66,15 @@ volume: 呐喊
   （**必须直接赋值**，不可累加，见坑 1）
 - `robots.txt` 在 `docs/public/`，指向 `https://luxunwenji.com/sitemap.xml`
 - 站长平台验证码走环境变量（不进仓库）：
-  `GOOGLE_SITE_VERIFICATION` / `BAIDU_SITE_VERIFICATION`，
+  `GOOGLE_SITE_VERIFICATION` / `BAIDU_SITE_VERIFICATION` / `BING_SITE_VERIFICATION`
+  （分别渲染为 `google-site-verification` / `baidu-site-verification` / `msvalidate.01`），
   为空则不输出 meta（**不要**输出空标签，会被判定验证失败）
 - 百度主动推送：`node scripts/submit-baidu.mjs --token=xxx [--limit=10]`
   （token 也可用 `BAIDU_TOKEN`），从 `dist/sitemap.xml` 读 URL
+- IndexNow（Bing/Yandex/Naver）：`node scripts/submit-indexnow.mjs`，
+  密钥文件 `docs/public/<key>.txt`（内容=文件名），`--generate` 生成；
+  密钥未部署就提交会返回 `403 SiteVerificationNotCompleted`
+- 推送脚本共用 `scripts/lib/cli.mjs`（parseArgs / extractUrls / loadSitemap / chunk）
 - 注意：站点未 ICP 备案且在境外（Cloudflare），百度收录效果天然受限；
   Google 无 sitemap ping 接口（已下线），只能 Search Console 手动提交
 - 本机 DNS 解析 luxunwenji.com 会超时，验证线上时用
