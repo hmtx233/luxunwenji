@@ -1,0 +1,28 @@
+# 默认按文本处理并统一为 LF 换行
+* text=auto eol=lf
+
+# 明确文本类型
+*.md   text eol=lf
+*.mdx  text eol=lf
+*.ts   text eol=lf
+*.mts  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.txt  text eol=lf
+
+# 二进制文件不做换行转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+
+# 语言统计：Markdown 文稿不计入代码占比
+*.md linguist-documentation
+docs/** linguist-documentation

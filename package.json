@@ -1,0 +1,21 @@
+{
+  "name": "luxunwenji",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "stats": "node scripts/gen-stats.mjs",
+    "order": "node scripts/reorder-index.mjs",
+    "verify:order": "node scripts/verify-order.mjs",
+    "predev": "npm run stats",
+    "docs:dev": "vitepress dev docs",
+    "prebuild": "npm run stats",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  },
+  "dependencies": {
+    "heti": "^0.9.6"
+  }
+}

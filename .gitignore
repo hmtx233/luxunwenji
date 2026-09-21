@@ -1,0 +1,38 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/.vitepress/.temp/
+*.tsbuildinfo
+
+# 工作区内部数据（备份与临时脚本，非源码）
+.workbuddy/backup-*/
+.workbuddy/tmp/
+.workbuddy/*.log
+# 但保留项目笔记
+!.workbuddy/memory/
+!.workbuddy/memory/**
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+build-log.txt
+
+# 编辑器与系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# 环境变量
+.env
+.env.local
+.env.*.local

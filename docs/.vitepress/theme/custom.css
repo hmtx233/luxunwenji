@@ -1,0 +1,202 @@
+/* ==========================================================================
+   鲁迅文集 · 中文阅读版式
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   正文字体：heti 宋体栈
+   heti 的字体靠类名（.heti--serif / .heti--song）驱动，而我们为了修首行
+   缩进已经废弃了运行时注入类名的方案，于是字体声明一并丢失、正文退回
+   系统黑体。这里直接把 heti--song 的字体栈声明在 .vp-doc 上：
+   纯 CSS、SSR 安全、不依赖客户端 JS。
+   "Heti Song" 是 heti 用 @font-face 定义的别名，依次指向
+   Songti SC / Songti TC / SimSun，属于衬线宋体。
+   -------------------------------------------------------------------------- */
+.vp-doc {
+  font-family: 'Times New Roman', times, 'Heti Song', 'Songti SC', 'SimSun',
+               'Noto Serif CJK SC', serif,
+               'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  font-size: 17px;
+  letter-spacing: 0.02em;
+}
+
+/* 标题用黑体，与宋体正文拉开对比（对应 heti--hei / .heti--classic 的标题处理） */
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  font-family: 'Helvetica Neue', helvetica, arial, 'Heti Hei', 'PingFang SC',
+               'Hiragino Sans GB', 'Microsoft YaHei', sans-serif,
+               'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+}
+
+/* --------------------------------------------------------------------------
+   版心宽度
+   heti 自带 max-width:42em，这里收到 38em 更适合中文长文阅读。
+   只作用于正文容器，不再对 .content-container 重复限宽。
+   -------------------------------------------------------------------------- */
+.vp-doc {
+  max-width: 38em;
+}
+
+/* --------------------------------------------------------------------------
+   首行缩进 2 字符
+   VitePress 正文结构为 .vp-doc > div > p，直接命中 p 即可。
+   选择器权重 (0,2,1) 高于 VitePress 自身的 .vp-doc p (0,1,1)。
+   -------------------------------------------------------------------------- */
+.vp-doc > div > p,
+.vp-doc > p {
+  text-indent: 2em;
+  margin-block: 0.5em;
+  line-height: 1.85;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+
+/* 章节序号（「一」「二」单行）与紧跟标题的首段不缩进 */
+.vp-doc .section-number,
+.vp-doc > div > h1 + p,
+.vp-doc > div > h2 + p,
+.vp-doc > div > h3 + p {
+  text-indent: 0;
+}
+
+/* 章节序号居中，字距放宽，作为小标题 */
+.vp-doc .section-number {
+  text-align: center;
+  font-size: 0.95em;
+  letter-spacing: 0.3em;
+  color: var(--vp-c-text-2);
+  margin-block: 2em 1em;
+}
+
+/* --------------------------------------------------------------------------
+   文末写作日期：另起一行、右对齐
+   由构建脚本包裹为 <p class="writing-date">
+   「关于」页的 .about-date 同此风格
+   -------------------------------------------------------------------------- */
+.vp-doc .writing-date,
+.vp-doc .about-date {
+  text-indent: 0;
+  text-align: right;
+  color: var(--vp-c-text-2);
+  font-size: 0.94em;
+  letter-spacing: 0.02em;
+  margin-block: 1.8em 0.4em;
+}
+
+.vp-doc .about-date {
+  margin-block-start: 2.4em;
+}
+
+/* --------------------------------------------------------------------------
+   对话 / 韵文
+   -------------------------------------------------------------------------- */
+.vp-doc p br {
+  line-height: 1.85;
+}
+
+.vp-doc blockquote p,
+.vp-doc blockquote > p:only-of-type {
+  text-indent: 0;
+  text-align: center;
+  color: var(--vp-c-text-1);
+  margin-block: 0.2em;
+}
+
+.vp-doc blockquote {
+  border-inline-start: none;
+  padding-inline: 0;
+  margin-block: 1.6em;
+  font-style: normal;
+}
+
+/* --------------------------------------------------------------------------
+   表格（「关于」页的收录统计）
+   正文改为宋体后，表格若沿用默认样式会显得松散，这里收紧一下。
+   -------------------------------------------------------------------------- */
+.vp-doc table {
+  display: table;
+  width: 100%;
+  margin-block: 1.6em;
+  border-collapse: collapse;
+  font-size: 0.94em;
+  line-height: 1.7;
+}
+
+.vp-doc tr {
+  background: transparent;
+  border-block-start: none;
+}
+
+.vp-doc tr:nth-child(2n) {
+  background: transparent;
+}
+
+.vp-doc th,
+.vp-doc td {
+  border: none;
+  border-block-end: 0.5px solid var(--vp-c-divider);
+  padding: 0.6em 0.8em;
+  text-align: left;
+}
+
+.vp-doc th {
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
+/* 数字列右对齐（第 2、3、4 列） */
+.vp-doc td:nth-child(n + 2):not(:last-child),
+.vp-doc th:nth-child(n + 2):not(:last-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 列表：正文是宋体，列表项也跟随，并去掉冗余缩进 */
+.vp-doc ul,
+.vp-doc ol {
+  padding-inline-start: 1.4em;
+  margin-block: 0.8em;
+}
+
+.vp-doc li {
+  margin-block: 0.35em;
+  line-height: 1.8;
+}
+
+.vp-doc li > p {
+  text-indent: 0;
+  margin-block: 0.2em;
+}
+
+/* --------------------------------------------------------------------------
+   标题层级
+   -------------------------------------------------------------------------- */
+.vp-doc h2 {
+  margin-block-start: 2.4em;
+  border-block-start: none;
+  padding-block-start: 0;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.vp-doc h3 {
+  margin-block-start: 1.9em;
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   移动端
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .vp-doc {
+    font-size: 16.5px;
+    max-width: none;
+  }
+  .vp-doc .writing-date {
+    text-align: left;
+    margin-inline-start: 2em;
+  }
+}
