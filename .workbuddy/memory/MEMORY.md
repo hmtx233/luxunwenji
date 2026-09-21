@@ -18,6 +18,9 @@ volume: 呐喊
 `title` 用于侧边栏与页面标题，`volume` 用于 SEO 描述。
 
 ## 正文排版约定
+- **字体**：正文用系统无衬线栈 `-apple-system / PingFang SC /
+  Hiragino Sans GB / Microsoft YaHei`，`17px / 1.7 / 0.03em`（详见坑 6）
+- **版心**：`.content > .content-container { max-width: 42em }`（详见坑 7）
 - **首行缩进**：由 `custom.css` 的 `.vp-doc > div > p { text-indent: 2em }` 统一控制，
   正文里不要手写空格或全角空格
 - **对话体**：作者刻意的分行用 `<br>` 承接
@@ -44,9 +47,19 @@ volume: 呐喊
    heti 的字体由类名驱动（`.heti--song` 宋体 / `.heti--hei` 黑体 /
    `.heti--kai` 楷体），`@font-face` 里的 `"Heti Song"` 只是
    `local("Songti SC")` 的别名。因为本站废弃了运行时注入类名，
-   已在 `custom.css` 里把字体栈直接写到 `.vp-doc`（宋体）与
-   `.vp-doc h1~h4`（黑体）。**不要**再用 `-apple-system`/`PingFang SC`
-   那套系统黑体栈覆盖 `.vp-doc` 的 `font-family`。
+   字体栈直接写在 `.vp-doc` 上。
+   **现状（2026-09-21 按用户指定方案调整）：正文为系统无衬线栈**
+   `-apple-system / PingFang SC / Hiragino Sans GB / Microsoft YaHei`，
+   `17px / line-height 1.7 / letter-spacing 0.03em`；
+   之前用过 heti 宋体栈（`Times New Roman → Heti Song → Songti SC`），
+   两者切换只需改 `.vp-doc` 的 `font-family`，改回宋体时记得同时
+   恢复 `letter-spacing: 0.02em`。
+7. **`.content-container` 是 `.vp-doc` 的父级，不是后代。**
+   真实结构：`.content > .content-container > main.main > .vp-doc`。
+   写 `.vp-doc .content-container { max-width }` 永远不命中，限宽会静默失效；
+   正确写法是 `.content > .content-container`（权重 0,2,0，写在 custom.css 中
+   晚于 VitePress 自带的 `.content-container[data-v-*]{max-width:688px}`，可覆盖）。
+   同时 **`.vp-doc` 自身不要再限宽**，否则 38em 会先把行宽截断。
 
 ## 构建
 ```bash

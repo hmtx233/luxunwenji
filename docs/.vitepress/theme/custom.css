@@ -3,39 +3,29 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   正文字体：heti 宋体栈
-   heti 的字体靠类名（.heti--serif / .heti--song）驱动，而我们为了修首行
-   缩进已经废弃了运行时注入类名的方案，于是字体声明一并丢失、正文退回
-   系统黑体。这里直接把 heti--song 的字体栈声明在 .vp-doc 上：
-   纯 CSS、SSR 安全、不依赖客户端 JS。
-   "Heti Song" 是 heti 用 @font-face 定义的别名，依次指向
-   Songti SC / Songti TC / SimSun，属于衬线宋体。
+   正文字体：系统无衬线栈（赫蹏 .heti 的默认取向）
+   字体栈 / 字号 / 行高 / 字距均按指定方案：
+   -apple-system → PingFang SC → Hiragino Sans GB → Microsoft YaHei。
+   纯 CSS 声明，SSR 安全、不依赖客户端 JS。
+   注：正文与标题同为无衬线，层级改由字号与字重区分。
    -------------------------------------------------------------------------- */
 .vp-doc {
-  font-family: 'Times New Roman', times, 'Heti Song', 'Songti SC', 'SimSun',
-               'Noto Serif CJK SC', serif,
-               'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB',
+               'Microsoft YaHei', sans-serif;
   font-size: 17px;
-  letter-spacing: 0.02em;
-}
-
-/* 标题用黑体，与宋体正文拉开对比（对应 heti--hei / .heti--classic 的标题处理） */
-.vp-doc h1,
-.vp-doc h2,
-.vp-doc h3,
-.vp-doc h4 {
-  font-family: 'Helvetica Neue', helvetica, arial, 'Heti Hei', 'PingFang SC',
-               'Hiragino Sans GB', 'Microsoft YaHei', sans-serif,
-               'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  line-height: 1.7;
+  letter-spacing: 0.03em;
 }
 
 /* --------------------------------------------------------------------------
-   版心宽度
-   heti 自带 max-width:42em，这里收到 38em 更适合中文长文阅读。
-   只作用于正文容器，不再对 .content-container 重复限宽。
+   版心宽度：每行控制在 30–40 字
+   限宽必须写在 .content-container 上 —— 它是 .vp-doc 的**父级**
+   （.content > .content-container > main.main > .vp-doc）。
+   所以 `.vp-doc .content-container` 这种后代选择器永远不命中；
+   同时 .vp-doc 自身不能再限宽，否则会先一步把行宽截断。
    -------------------------------------------------------------------------- */
-.vp-doc {
-  max-width: 38em;
+.content > .content-container {
+  max-width: 42em;
 }
 
 /* --------------------------------------------------------------------------
@@ -47,7 +37,7 @@
 .vp-doc > p {
   text-indent: 2em;
   margin-block: 0.5em;
-  line-height: 1.85;
+  line-height: 1.7;
   line-break: strict;
   overflow-wrap: break-word;
 }
@@ -92,7 +82,7 @@
    对话 / 韵文
    -------------------------------------------------------------------------- */
 .vp-doc p br {
-  line-height: 1.85;
+  line-height: 1.7;
 }
 
 .vp-doc blockquote p,
@@ -112,7 +102,7 @@
 
 /* --------------------------------------------------------------------------
    表格（「关于」页的收录统计）
-   正文改为宋体后，表格若沿用默认样式会显得松散，这里收紧一下。
+   表格若沿用默认样式会显得松散，这里收紧一下。
    -------------------------------------------------------------------------- */
 .vp-doc table {
   display: table;
@@ -163,7 +153,7 @@
 
 .vp-doc li {
   margin-block: 0.35em;
-  line-height: 1.8;
+  line-height: 1.7;
 }
 
 .vp-doc li > p {
@@ -193,6 +183,8 @@
 @media (max-width: 640px) {
   .vp-doc {
     font-size: 16.5px;
+  }
+  .content > .content-container {
     max-width: none;
   }
   .vp-doc .writing-date {

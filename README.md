@@ -158,15 +158,22 @@ npm run verify:order # 检查有无遗漏、是否还有靠拼音兜底的条目
 
 正文排版由 `theme/custom.css` 统一定义，**不依赖运行时 JS**（避免 SSR 首屏闪样式）：
 
-- **正文字体** — 宋体栈 `Times New Roman → Heti Song → Songti SC / SimSun`
-- **标题字体** — 黑体栈 `Helvetica Neue → Heti Hei → PingFang SC / Microsoft YaHei`
+- **正文字体** — 系统无衬线栈 `-apple-system → PingFang SC → Hiragino Sans GB → Microsoft YaHei`
+- **字号 / 行高 / 字距** — `17px / 1.7 / 0.03em`（移动端 16.5px）
+- **版心宽度** — `.content > .content-container { max-width: 42em }`，每行约 30–40 字
 - **首行缩进** — `.vp-doc > div > p { text-indent: 2em }`，正文里不要手写空格
 
-> ⚠️ heti 的字体靠**类名**驱动（`.heti--song` / `.heti--kai` / `.heti--hei`），
-> `@font-face` 里的 `"Heti Song"` 只是 `local("Songti SC")` 的别名，**不声明不生效**。
-> 因此本站把字体栈直接写在 `.vp-doc` 上。
-> **不要**用 `-apple-system` / `PingFang SC` 那套系统黑体栈覆盖 `.vp-doc` 的 `font-family`，
-> 否则正文会退回无衬线，失去 heti 的排版效果。
+> ⚠️ 两个易错点：
+>
+> 1. **限宽要写在 `.content-container` 上**，它是 `.vp-doc` 的**父级**
+>    （`.content > .content-container > main.main > .vp-doc`）。
+>    写成 `.vp-doc .content-container` 是后代选择器，**永远不命中**；
+>    同时 `.vp-doc` 自身不能再限宽，否则会先一步把行宽截断。
+> 2. heti 的字体靠**类名**驱动（`.heti--song` / `.heti--kai` / `.heti--hei`），
+>    `@font-face` 里的 `"Heti Song"` 只是 `local("Songti SC")` 的别名，**不声明不生效**。
+>    本站已废弃运行时注入 `.heti` 类的方案，字体栈直接写在 `.vp-doc` 上。
+>    若要改回宋体正文，把 `.vp-doc` 的 `font-family` 换成
+>    `'Times New Roman', times, 'Heti Song', 'Songti SC', 'SimSun', serif` 即可。
 
 文章页顶部的居中标题由 `theme/ArticleTitle.vue` 提供，
 挂在 Layout 的 `doc-before` 插槽；首页与文集 index 通过
