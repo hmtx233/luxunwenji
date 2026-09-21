@@ -234,12 +234,18 @@ npm run submit:indexnow --              # 全量提交（595 条，单批完成�
 npm run submit:indexnow -- --limit 20   # 或只提交前 20 条
 ```
 
-- 端点默认 `https://api.indexnow.org/indexnow`（转发给所有参与引擎）；
-  可加 `--endpoint=https://www.bing.com/indexnow` 只提交 Bing
+- 端点默认 `https://api.indexnow.org/indexnow`（协议枢纽，会转发给所有参与引擎）；
+  实际用 Bing 时建议直接打 `--endpoint=https://www.bing.com/indexnow`
 - 返回码：`200` / `202` 成功（202 = 已接收，密钥待校验）、
   `403` 密钥无效（密钥文件未部署或内容不一致）、`422` URL 不属于该 host、
   `429` 提交过于频繁
 - 密钥文件没部署就提交会返回 `403 SiteVerificationNotCompleted`，属预期
+
+> ⚠️ **本站实测（2026-09-21）**：密钥文件已可访问（`curl` 返回密钥本身，
+> bingbot / IndexNow UA 都是 200）的情况下，
+> `api.indexnow.org` 仍持续返回 `403 SiteVerificationNotCompleted`，
+> 而改用 `--endpoint=https://www.bing.com/indexnow` **立即 200 成功**（595 条已全部提交）。
+> 结论：Bing 走它自己的端点，枢纽端点可以晚些再试。
 
 ## 版面与字体
 

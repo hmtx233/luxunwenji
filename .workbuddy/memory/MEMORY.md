@@ -73,7 +73,9 @@ volume: 呐喊
   （token 也可用 `BAIDU_TOKEN`），从 `dist/sitemap.xml` 读 URL
 - IndexNow（Bing/Yandex/Naver）：`node scripts/submit-indexnow.mjs`，
   密钥文件 `docs/public/<key>.txt`（内容=文件名），`--generate` 生成；
-  密钥未部署就提交会返回 `403 SiteVerificationNotCompleted`
+  **Bing 要打 `--endpoint=https://www.bing.com/indexnow`**——
+  枢纽端点 `api.indexnow.org` 在密钥已可访问的情况下仍返回
+  `403 SiteVerificationNotCompleted`（2026-09-21 实测），Bing 自己的端点直接 200
 - 推送脚本共用 `scripts/lib/cli.mjs`（parseArgs / extractUrls / loadSitemap / chunk）
 - 注意：站点未 ICP 备案且在境外（Cloudflare），百度收录效果天然受限；
   Google 无 sitemap ping 接口（已下线），只能 Search Console 手动提交
