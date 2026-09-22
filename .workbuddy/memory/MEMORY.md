@@ -148,6 +148,14 @@ volume: 呐喊
 - 本机 DNS 解析 luxunwenji.com 会超时，验证线上时用
   `curl --resolve luxunwenji.com:443:104.21.90.72 https://…`
 
+## 版本控制
+- 远程 `origin` = `git@github.com:hmtx233/luxunwenji.git`（**SSH**，非 https），主分支 `main`
+- **本机没有 `gh` CLI**，不能建 PR，只能直接 push 到 `main`
+- 推送一律带 `GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15"`：
+  非交互环境下 SSH 若要口令输入会**直接挂住**，BatchMode 让它立刻失败返回
+- `.workbuddy/memory/` **有意入库**（`.gitignore` 里用 `!` 白名单放行），
+  `.workbuddy/backup-*`、`.workbuddy/tmp/` 与临时脚本则被排除
+
 ## 构建
 ```bash
 node scripts/gen-stats.mjs                      # 生成首页统计
