@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
-const ROOT = 'D:/git-rep/luxunwenji/docs'
+const ROOT = resolve(import.meta.dirname, '../docs')
 
 /** 与 config.mts 中的 categories 保持一致 */
 const dirs = [
@@ -36,7 +36,14 @@ for (const d of dirs) {
   for (const f of files) {
     articles++
     byCategory[cat].articles++
-    const n = readFileSync(join(ROOT, d, f), 'utf8').replace(/\s/g, '').length
+    // 与 config.mts 的 loadMeta() 保持完全一致的计字规则：
+    // 去掉 frontmatter、HTML 标签、标题记号与空白，保留标点。
+    // 否则首页总字数与文章页「X 字」会对不上。
+    const n = readFileSync(join(ROOT, d, f), 'utf8')
+      .replace(/^---\r?\n[\s\S]*?\r?\n---/, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/\s+/g, '').length
     chars += n
     byCategory[cat].chars += n
   }
@@ -49,6 +56,6 @@ export const siteStats = ${JSON.stringify(
   2,
 )}
 `
-writeFileSync('D:/git-rep/luxunwenji/docs/.vitepress/theme/site-stats.mjs', out, 'utf8')
+writeFileSync(resolve(ROOT, '.vitepress/theme/site-stats.mjs'), out, 'utf8')
 console.log(`统计: ${dirs.length} 部文集 / ${articles} 篇 / ${(chars / 10000).toFixed(1)} 万字`)
 console.log(JSON.stringify(byCategory, null, 1))

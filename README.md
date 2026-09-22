@@ -25,11 +25,30 @@ npm run docs:build    # 构建生产产物到 docs/.vitepress/dist
 npm run docs:preview  # 本地预览构建产物
 
 npm run stats         # 重新统计篇目/字数，写入首页数据
-npm run order         # 按 config.mts 的 order 重排文集首页的「篇目」列表
-npm run verify:order  # 校验各文集排序结果与覆盖率
+npm run index         # 由 config.mts 重建各文集首页（序文出页 + 篇目列表）
+npm run index:dry     # 同上，只打印改动不落盘
+npm run og            # 生成社交分享卡片 og:image 与方形应用图标（需 Pillow）
+npm run verify:index  # 校验首页改动无内容丢失、序文仍有独立入口
+npm run verify:seo    # 校验 canonical / Open Graph / Twitter / JSON-LD
+npm run lint:links    # 扫描链接目标含空格的写法（会在 Markdown 里静默失效）
+npm run verify:build  # 校验构建产物：阅读信息、篇目链接、h1 唯一性
+npm run isolate       # 复制一份隔离副本，供 dev server 运行时构建用
 npm run submit:baidu  # 向百度主动推送 sitemap 里的 URL（需 token，见「搜索引擎收录」）
 npm run submit:indexnow  # 向 Bing/Yandex 等推送（IndexNow 协议，见「搜索引擎收录」）
 ```
+
+> `npm run og` 需要 Python + Pillow。Node 侧没有可用的图像库，不值得为此引依赖；
+> 安装：`pip install Pillow`，或用 `PYTHON=/path/to/python npm run og` 指定解释器。
+> 卡片缺失时会自动回退到站点默认图，不影响构建。
+
+> ⚠️ **`vitepress dev` 与 `vitepress build` 不能同时运行。**
+> 两者共用 `docs/.vitepress/cache` 与 `.temp`，并发会互相锁死，
+> 表现为构建卡在 "building client + server bundles" 十几分钟不动。
+> 若开发服务器正在跑又要构建，用 `npm run isolate` 复制一份到
+> `D:\_lx-verify`（约 4MB，自动链好 node_modules）再在那里构建。
+>
+> 另：正常构建约 90 秒。若远超此值且 `dist` 文件数长时间不变，
+> 先排查是否有残留的 build/dev 进程在抢占缓存。
 
 > 注：本机 `npm run` 可能因安全策略拦截 `wsl.exe` 而失败，
 > 此时直接用 `node node_modules/vitepress/bin/vitepress.js build docs` 亦可。
@@ -93,6 +112,33 @@ volume: 呐喊
 由 `custom.css` 控制为另起一行、右对齐。新增文章时照此写法即可；
 若日期是嵌在长段落末尾（如同一段叙述的结尾），则保持内联，不做包裹。
 
+### 字数与阅读时间
+
+文章页标题下方会自动显示「4,811 字 · 阅读约 12 分钟」，**无需在正文里手写**：
+
+- **字数** — 由 `config.mts` 的 `loadMeta()` 在构建期统计
+  （去掉 frontmatter、HTML 标签与空白后的字符数，保留标点）
+- **阅读时间** — 按 400 字/分钟四舍五入，最少 1 分钟
+- 两者经 `transformPageData` 注入 `frontmatter.chars` / `frontmatter.minutes`，
+  再由 `ArticleTitle.vue` 渲染
+
+想调整速度，改 `config.mts` 里 `Math.round(meta.chars / 400)` 的除数即可。
+
+## 链接写法（重要）
+
+**链接目标里不能出现空格。** CommonMark 的链接目标遇到空白即终止解析，
+markdown-it 解析失败后会**把整段 `[文字](/路径 带空格)` 当成纯文本输出** ——
+既不可点击，也不会进 VitePress 的死链检查，属于静默故障。
+
+学术（`第一篇 史家…`）与书信（`第一集 北京_一`）的文件名含空格，必须写成：
+
+```markdown
+- [第一篇 史家对于小说之著录及论述](/academic/zhongguo-xiaoshuo/第一篇%20史家对于小说之著录及论述)
+```
+
+即把空格编码成 `%20`（中文本身保持明文即可，与其余文集一致）。
+`scripts/build-index.mjs` 已自动处理；改动后可运行 `npm run lint:links` 全站复检。
+
 ## 自定义篇目顺序
 
 侧边栏顺序由 `docs/.vitepress/config.mts` 中每个文集的 `order` 数组控制：
@@ -112,8 +158,8 @@ volume: 呐喊
 改了 `order` 之后要同步更新文集首页的「篇目」列表，运行：
 
 ```bash
-npm run order        # 重排 index.md 的篇目列表
-npm run verify:order # 检查有无遗漏、是否还有靠拼音兜底的条目
+npm run index         # 由 order 重建各文集首页的篇目列表
+npm run verify:index  # 检查有无遗漏、标题与引言是否被误改
 ```
 
 ### 中文数字命名的文集（重要）
@@ -132,7 +178,19 @@ npm run verify:order # 检查有无遗漏、是否还有靠拼音兜底的条目
 
 ### 文集首页
 
-每部文集目录下均有 `index.md`，包含文集简介、前言（题记/序言/小引）与篇目列表。
+每部文集目录下均有 `index.md`，只保留两件事：文集简介（引言）与篇目列表。
+
+**序文不在首页出现。** 题记、序言、小引一类内容都另有独立文章，
+首页若再整段照抄，等于同一篇文字有两个可访问 URL —— 既是重复内容，
+也会稀释首页的搜索权重。序文作为篇目的第一条列出，点进去就是独立页面。
+
+这两件事都由 `npm run index` 生成，**不要手工编辑**：
+
+```bash
+npm run index         # 移除首页序文段 + 按 order 重建篇目列表
+npm run verify:index  # 校验：标题与引言零改动，被移出的序文都有独立入口
+```
+
 新增文集时需同步在 `config.mts` 的 `categories` 中登记，否则不会出现在导航与侧边栏。
 
 ## 关于页
@@ -149,9 +207,35 @@ npm run verify:order # 检查有无遗漏、是否还有靠拼音兜底的条目
 
 - `cleanUrls: true` — 链接不带 `.html` 后缀
 - `sitemap` — 构建时自动生成 `sitemap.xml`
-- `transformPageData` — 为每页生成独立的 `description` 与 `canonical`
+- `transformPageData` — 为每页生成独立的 `description`、`canonical`，
+  以及 Open Graph / Twitter Card / JSON-LD（见「社交分享与结构化数据」）
 
 部署后请确认 `dist/sitemap.xml` 已生成（约 595 条 URL，见下文「搜索引擎收录」）。
+
+## 社交分享与结构化数据
+
+`transformPageData` 会为每一页产出完整的一组社交与结构化数据，
+全部**直接赋值而非累加**（该钩子每页会执行多次，累加会让构建从 90 秒涨到十几分钟）：
+
+| 项目 | 说明 |
+| --- | --- |
+| `canonical` | 百分号编码、与 sitemap 写法一致；文集首页带尾斜杠，文章页不带 |
+| Open Graph | `og:type`（文章页为 `article`）、`og:title/description/url`、`og:image` 含尺寸与 alt |
+| Twitter Card | `summary_large_image`，复用同一张图 |
+| JSON-LD | 首页 `WebSite`；文集首页 `Book`；文章页 `Article` + `isPartOf: Book`；均附 `BreadcrumbList` |
+
+`og:image` 指向 `docs/public/og/` 下的卡片，**每部文集一张**，
+由 `npm run og` 生成（1200×630，纸白底 + 鲁迅红，标题用宋体）。
+同一条命令还会生成方形的 `apple-touch-icon.png`。
+
+卡片文件不存在时自动回退到站点默认图 `/og.png`，因此**漏跑该脚本不会导致构建失败**。
+
+改完 SEO 相关代码后跑一次：
+
+```bash
+npm run og           # 需要时重新生成卡片
+npm run verify:seo   # 校验 canonical / OG / Twitter / JSON-LD / h1 唯一性
+```
 
 ## 搜索引擎收录
 
@@ -268,9 +352,17 @@ npm run submit:indexnow -- --limit 20   # 或只提交前 20 条
 >    若要改回宋体正文，把 `.vp-doc` 的 `font-family` 换成
 >    `'Times New Roman', times, 'Heti Song', 'Songti SC', 'SimSun', serif` 即可。
 
-文章页顶部的居中标题由 `theme/ArticleTitle.vue` 提供，
-挂在 Layout 的 `doc-before` 插槽；首页与文集 index 通过
-`layout: home|page` 自动隐藏。
+文章页顶部的居中标题由 `theme/ArticleTitle.vue` 提供，挂在 Layout 的
+`doc-before` 插槽，结构为「卷名 · 标题 · 字数与阅读时间」。
+
+**只在「目录下的文章」上出现**（路径形如 `<类别>/<文集>/<篇名>.md`），
+因此以下页面自动跳过，不会出现两个 `<h1>`：
+
+- 首页与自定义页（`layout: home|page`）
+- 各文集的 `index.md` —— 正文自带 `# 文集名`
+- `docs` 根目录下的独立页（如 `about.md`）—— 用各自的 markdown 标题
+
+需要例外时在 frontmatter 写 `articleTitle: true` / `false` 即可覆盖。
 
 ## 许可
 

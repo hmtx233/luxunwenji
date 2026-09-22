@@ -190,7 +190,10 @@ const categories: Category[] = [
    构建期间同一文件会被多次查询（侧边栏一次、transformPageData 每页若干次），
    这里做一层进程内缓存，避免重复读盘，也保证返回值稳定。
    --------------------------------------------------------------------------- */
-const metaCache = new Map<string, { title: string; volume: string; excerpt: string }>()
+const metaCache = new Map<
+  string,
+  { title: string; volume: string; excerpt: string; chars: number }
+>()
 
 function loadMeta(dir: string, file: string) {
   const key = `${dir}/${file}`
@@ -200,6 +203,7 @@ function loadMeta(dir: string, file: string) {
   let title = file.replace(/\.md$/, '')
   let volume = ''
   let excerpt = ''
+  let chars = 0
 
   try {
     const raw = readFileSync(resolve(docsRoot, dir, file), 'utf8')
@@ -217,11 +221,19 @@ function loadMeta(dir: string, file: string) {
       .replace(/\s+/g, '')
       .trim()
     excerpt = body.slice(0, 80)
+
+    // 字数：去掉 frontmatter、HTML 标签与空白后的字符数。
+    // 保留标点 —— 中文标点同样占版面，计入阅读量更贴近实际。
+    chars = raw
+      .replace(/^---\r?\n[\s\S]*?\r?\n---/, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/\s+/g, '').length
   } catch {
     /* 读不到就用文件名兜底 */
   }
 
-  const value = { title, volume, excerpt }
+  const value = { title, volume, excerpt, chars }
   metaCache.set(key, value)
   return value
 }
@@ -301,21 +313,220 @@ function buildSidebar() {
 
 /** 构建期统计不在此计算，由 scripts/gen-stats.mjs 生成给首页使用 */
 
+/* ---------------------------------------------------------------------------
+   SEO：社交卡片与结构化数据
+   --------------------------------------------------------------------------- */
+
+const SITE_DESCRIPTION =
+  '鲁迅作品在线阅读：《呐喊》《彷徨》《故事新编》《朝花夕拾》《野草》及十六部杂文集全文。'
+
+/** dir → 文集名与所属分类，供面包屑与 og:image 使用 */
+const collectionByDir = new Map<string, { text: string; category: string }>()
+for (const cat of categories) {
+  for (const col of cat.collections) {
+    collectionByDir.set(col.dir, { text: col.text, category: cat.text })
+  }
+}
+
+/**
+ * 每部文集一张分享卡片，由 `npm run og` 生成到 docs/public/og/。
+ * 卡片缺失时回退到站点默认图 —— 不让配置依赖「是否跑过某个脚本」。
+ */
+const OG_DIR = resolve(docsRoot, 'public/og')
+const OG_CARDS = new Set(existsSync(OG_DIR) ? readdirSync(OG_DIR) : [])
+const OG_DEFAULT = `${SITE_URL}/og.png`
+const OG_WIDTH = '1200'
+const OG_HEIGHT = '630'
+
+function ogCardFor(dir: string) {
+  if (!dir) return OG_DEFAULT
+  const key = `${dir.replace(/\//g, '-')}.png`
+  return OG_CARDS.has(key) ? `${SITE_URL}/og/${key}` : OG_DEFAULT
+}
+
+/** 按路径段做百分号编码，保留 '/' —— 与 sitemap 里的写法保持一致 */
+function encodePath(p: string) {
+  return p.split('/').map(encodeURIComponent).join('/')
+}
+
+/** 由 relativePath 推出对外 URL：文集首页带尾斜杠，文章不带 */
+function pageUrlOf(relPath: string) {
+  if (relPath === '' || relPath === 'index') return `${SITE_URL}/`
+  if (relPath.endsWith('/index')) return `${SITE_URL}/${encodePath(relPath.slice(0, -'index'.length))}`
+  return `${SITE_URL}/${encodePath(relPath)}`
+}
+
+interface SeoInput {
+  relPath: string
+  dir: string
+  title: string
+  description: string
+  volume: string
+  chars: number
+}
+
+/** JSON-LD 结构化数据，统一放进一个 @graph 里 */
+function structuredData(input: SeoInput) {
+  const { relPath, dir, title, description, volume, chars } = input
+  const url = pageUrlOf(relPath)
+  const isHome = relPath === 'index'
+  const isCollectionIndex = relPath.endsWith('/index')
+  const col = collectionByDir.get(dir)
+
+  const publisher = { '@type': 'Organization', name: SITE_NAME, url: `${SITE_URL}/` }
+  const author = { '@type': 'Person', name: '鲁迅' }
+  const graph: Record<string, unknown>[] = []
+
+  if (isHome) {
+    graph.push({
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: SITE_NAME,
+      alternateName: '鲁迅作品全集',
+      url: `${SITE_URL}/`,
+      description: SITE_DESCRIPTION,
+      inLanguage: 'zh-CN',
+      publisher,
+    })
+  } else if (isCollectionIndex && col) {
+    graph.push({
+      '@type': 'Book',
+      '@id': `${url}#book`,
+      name: col.text,
+      url,
+      description,
+      inLanguage: 'zh-CN',
+      author,
+      publisher,
+      isAccessibleForFree: true,
+      genre: col.category,
+    })
+    graph.push(breadcrumb([
+      { name: '首页', url: `${SITE_URL}/` },
+      { name: col.text, url },
+    ]))
+  } else if (dir && col) {
+    graph.push({
+      '@type': 'Article',
+      '@id': `${url}#article`,
+      headline: title,
+      name: title,
+      url,
+      description,
+      inLanguage: 'zh-CN',
+      author,
+      publisher,
+      isAccessibleForFree: true,
+      ...(chars > 0 ? { wordCount: chars } : {}),
+      image: ogCardFor(dir),
+      isPartOf: {
+        '@type': 'Book',
+        name: col.text,
+        url: `${SITE_URL}/${encodePath(dir)}/`,
+      },
+      mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+      ...(volume ? { about: volume } : {}),
+    })
+    graph.push(breadcrumb([
+      { name: '首页', url: `${SITE_URL}/` },
+      { name: col.text, url: `${SITE_URL}/${encodePath(dir)}/` },
+      { name: title, url },
+    ]))
+  } else {
+    graph.push({
+      '@type': 'WebPage',
+      '@id': url,
+      name: title || SITE_NAME,
+      url,
+      description,
+      inLanguage: 'zh-CN',
+      publisher,
+    })
+    // 根级独立页（如「关于」）给一条两级面包屑；首页不需要
+    if (!isHome) {
+      graph.push(breadcrumb([
+        { name: '首页', url: `${SITE_URL}/` },
+        { name: title || SITE_NAME, url },
+      ]))
+    }
+  }
+
+  return { '@context': 'https://schema.org', '@graph': graph }
+}
+
+function breadcrumb(items: { name: string; url: string }[]) {
+  return {
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((it, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: it.name,
+      item: it.url,
+    })),
+  }
+}
+
+/** 组装整页 <head>：canonical + Open Graph + Twitter Card + JSON-LD */
+function buildHead(input: SeoInput): HeadConfig[] {
+  const { relPath, dir, title, description } = input
+  const url = pageUrlOf(relPath)
+  const isCollectionIndex = relPath.endsWith('/index')
+  const isArticle = Boolean(dir) && !isCollectionIndex
+  const card = ogCardFor(dir)
+  const ogTitle = title || SITE_NAME
+
+  const head: HeadConfig[] = [
+    ['link', { rel: 'canonical', href: url }],
+
+    ['meta', { property: 'og:type', content: isArticle ? 'article' : 'website' }],
+    ['meta', { property: 'og:site_name', content: SITE_NAME }],
+    ['meta', { property: 'og:locale', content: 'zh_CN' }],
+    ['meta', { property: 'og:title', content: ogTitle }],
+    ['meta', { property: 'og:description', content: description }],
+    ['meta', { property: 'og:url', content: url }],
+    ['meta', { property: 'og:image', content: card }],
+    ['meta', { property: 'og:image:type', content: 'image/png' }],
+    ['meta', { property: 'og:image:width', content: OG_WIDTH }],
+    ['meta', { property: 'og:image:height', content: OG_HEIGHT }],
+    ['meta', { property: 'og:image:alt', content: `${ogTitle} — ${SITE_NAME}` }],
+
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: ogTitle }],
+    ['meta', { name: 'twitter:description', content: description }],
+    ['meta', { name: 'twitter:image', content: card }],
+    ['meta', { name: 'twitter:image:alt', content: `${ogTitle} — ${SITE_NAME}` }],
+  ]
+
+  if (isArticle && input.volume) {
+    head.push(['meta', { property: 'article:section', content: input.volume }])
+  }
+
+  // JSON-LD：把 < 转义掉，避免内容里出现 </script> 提前闭合标签
+  const ld = JSON.stringify(structuredData(input)).replace(/</g, '\\u003c')
+  head.push(['script', { type: 'application/ld+json' }, ld])
+
+  return head
+}
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   lang: 'zh-CN',
   title: SITE_NAME,
-  description:
-    '鲁迅作品在线阅读：《呐喊》《彷徨》《故事新编》《朝花夕拾》《野草》及十六部杂文集全文。',
+  description: SITE_DESCRIPTION,
   cleanUrls: true,
   sitemap: { hostname: SITE_URL },
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
     ['meta', { name: 'theme-color', content: '#ffffff' }],
     ['meta', { name: 'author', content: '鲁迅' }],
-    ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:site_name', content: SITE_NAME }],
-    // 站长平台验证（Google / 百度），未配置验证码时不输出
+    // 允许 Google 抓取大图预览（Discover / 富媒体卡片）
+    ['meta', { name: 'robots', content: 'index,follow,max-image-preview:large' }],
+    ['meta', { name: 'format-detection', content: 'telephone=no' }],
+    // 注意：og:type / og:site_name 等社交卡片标签**不在这里**。
+    // 它们需要逐页不同（文章页是 article、附所属文集），
+    // 统一由 transformPageData 生成，避免同一标签出现两次。
+    // 站长平台验证（Google / 百度 / Bing），未配置验证码时不输出
     ...verificationTags(),
   ],
   markdown: {
@@ -375,15 +586,18 @@ export default defineConfig({
     const dir = relPath.includes('/') ? relPath.slice(0, relPath.lastIndexOf('/')) : ''
     const name = relPath.split('/').pop() || ''
 
-    const meta = dir ? loadMeta(dir, `${name}.md`) : { title: '', volume: '', excerpt: '' }
+    const meta = dir
+      ? loadMeta(dir, `${name}.md`)
+      : { title: '', volume: '', excerpt: '', chars: 0 }
 
     if (!pageData.frontmatter.title && meta.title) {
       pageData.frontmatter.title = meta.title
     }
 
+    const fmTitle = (pageData.frontmatter.title as string) || pageData.title || ''
+    const fmVolume = (pageData.frontmatter.volume as string) || meta.volume
+
     if (!pageData.description) {
-      const fmTitle = (pageData.frontmatter.title as string) || pageData.title || ''
-      const fmVolume = (pageData.frontmatter.volume as string) || meta.volume
       const parts: string[] = []
       if (fmVolume) parts.push(`《${fmVolume.replace(/^《|》$/g, '')}》`)
       if (fmTitle) parts.push(fmTitle)
@@ -393,15 +607,23 @@ export default defineConfig({
         : `${head} — ${SITE_NAME}，鲁迅作品在线阅读。`
     }
 
-    // 首页不必输出文章型的 canonical
-    if (relPath === 'index') {
-      pageData.frontmatter.head = [['link', { rel: 'canonical', href: `${SITE_URL}/` }]]
-      return
+    // 文章字数与预计阅读时间，供页面标题下方显示。
+    // 速度取 400 字/分钟（中文长文的常见估计），四舍五入，最少 1 分钟。
+    // 直接赋值而非累加，保证本钩子多次调用结果一致。
+    if (meta.chars > 0) {
+      pageData.frontmatter.chars = meta.chars
+      pageData.frontmatter.minutes = Math.max(1, Math.round(meta.chars / 400))
     }
 
-    // canonical 直接赋值而非追加，保证多次调用结果一致
-    pageData.frontmatter.head = [
-      ['link', { rel: 'canonical', href: `${SITE_URL}/${relPath}` }],
-    ]
+    // canonical / Open Graph / Twitter Card / JSON-LD 一次性生成后**直接赋值**，
+    // 保证本钩子多次调用结果完全一致（累加会让 head 无限膨胀，构建从 90 秒涨到十几分钟）。
+    pageData.frontmatter.head = buildHead({
+      relPath,
+      dir,
+      title: fmTitle,
+      description: pageData.description as string,
+      volume: fmVolume,
+      chars: meta.chars,
+    })
   },
 })
