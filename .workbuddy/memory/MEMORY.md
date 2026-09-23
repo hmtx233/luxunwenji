@@ -156,6 +156,12 @@ volume: 呐喊
 - **本机没有 `gh` CLI**，不能建 PR，只能直接 push 到 `main`
 - 推送一律带 `GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15"`：
   非交互环境下 SSH 若要口令输入会**直接挂住**，BatchMode 让它立刻失败返回
+- **22 端口会被本机代理拦截**（报 `Connection closed by 198.18.0.62 port 22`，
+  198.18.0.0/15 是代理的 fake-IP 段）。此时改走 GitHub 官方的 443 通道即可：
+  `GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new -p 443" \
+   git push git@ssh.github.com:hmtx233/luxunwenji.git main`
+  （这样推不会更新 `origin/main` 跟踪引用，事后补
+  `git update-ref refs/remotes/origin/main <sha>` 让 `git status` 归位）
 - `.workbuddy/memory/` **有意入库**（`.gitignore` 里用 `!` 白名单放行），
   `.workbuddy/backup-*`、`.workbuddy/tmp/` 与临时脚本则被排除
 
