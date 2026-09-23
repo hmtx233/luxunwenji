@@ -35,7 +35,7 @@ const SEARCH_CONSOLE = {
  * 留空字符串即**完全不输出**统计代码（本地开发、或想临时关掉时改这里）。
  * 注意：ID 会出现在页面源码里，这本来就是公开信息，不必走环境变量。
  */
-const GA_ID = 'G-SSJP85LM7Q'
+const GA_ID = 'G-0EW1GXLPTQ'
 
 /**
  * Google Analytics 4（gtag.js）埋点，全站每页注入。

@@ -336,7 +336,7 @@ npm run submit:indexnow -- --limit 20   # 或只提交前 20 条
 埋点写在 `config.mts` 的 `head` 里，由 `analyticsTags()` 生成，**全站每页生效**：
 
 ```ts
-const GA_ID = 'G-SSJP85LM7Q'   // 留空即完全不输出统计代码
+const GA_ID = 'G-0EW1GXLPTQ'   // 留空即完全不输出统计代码
 ```
 
 用的是 Google 官方的 gtag.js 片段（异步加载，不阻塞渲染），
