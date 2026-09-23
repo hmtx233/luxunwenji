@@ -29,6 +29,38 @@ const SEARCH_CONSOLE = {
   bing: process.env.BING_SITE_VERIFICATION || '',
 }
 
+/**
+ * Google Analytics 4 衡量 ID。
+ *
+ * 留空字符串即**完全不输出**统计代码（本地开发、或想临时关掉时改这里）。
+ * 注意：ID 会出现在页面源码里，这本来就是公开信息，不必走环境变量。
+ */
+const GA_ID = 'G-SSJP85LM7Q'
+
+/**
+ * Google Analytics 4（gtag.js）埋点，全站每页注入。
+ *
+ * 用官方原版片段：异步加载 gtag.js，再推 dataLayer 初始化。
+ * 脚本本身不阻塞渲染；但中国大陆访问者通常加载不到 googletagmanager.com，
+ * 那种情况下不会上报（需要覆盖国内流量得另接百度统计等）。
+ */
+function analyticsTags(): HeadConfig[] {
+  if (!GA_ID) return []
+  return [
+    ['script', { async: '', src: `https://www.googletagmanager.com/gtag/js?id=${GA_ID}` }],
+    [
+      'script',
+      {},
+      [
+        'window.dataLayer = window.dataLayer || [];',
+        'function gtag(){dataLayer.push(arguments);}',
+        "gtag('js', new Date());",
+        `gtag('config', '${GA_ID}');`,
+      ].join('\n'),
+    ],
+  ]
+}
+
 /** 生成站长平台验证 meta（缺省则不生成） */
 function verificationTags(): HeadConfig[] {
   const tags: HeadConfig[] = []
@@ -528,6 +560,8 @@ export default defineConfig({
     // 统一由 transformPageData 生成，避免同一标签出现两次。
     // 站长平台验证（Google / 百度 / Bing），未配置验证码时不输出
     ...verificationTags(),
+    // Google Analytics 4，GA_ID 为空时不输出
+    ...analyticsTags(),
   ],
   markdown: {
     theme: { light: 'github-light', dark: 'github-dark' },

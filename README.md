@@ -331,6 +331,23 @@ npm run submit:indexnow -- --limit 20   # 或只提交前 20 条
 > 而改用 `--endpoint=https://www.bing.com/indexnow` **立即 200 成功**（595 条已全部提交）。
 > 结论：Bing 走它自己的端点，枢纽端点可以晚些再试。
 
+## 访问统计（Google Analytics 4）
+
+埋点写在 `config.mts` 的 `head` 里，由 `analyticsTags()` 生成，**全站每页生效**：
+
+```ts
+const GA_ID = 'G-SSJP85LM7Q'   // 留空即完全不输出统计代码
+```
+
+用的是 Google 官方的 gtag.js 片段（异步加载，不阻塞渲染），
+产出 `<script async src="https://www.googletagmanager.com/gtag/js?id=…">`
+加一段 `dataLayer` 初始化。想临时关掉统计（或本地开发不想污染数据），
+把 `GA_ID` 改成空字符串再构建即可。
+
+> 注意：`googletagmanager.com` 在中国大陆通常不可直连，
+> 国内访问者的会话该脚本加载不到、不会上报。若要覆盖国内流量，
+> 得另外接一家国内统计（百度统计 / 51LA 等），两者可以并存。
+
 ## 版面与字体
 
 正文排版由 `theme/custom.css` 统一定义，**不依赖运行时 JS**（避免 SSR 首屏闪样式）：

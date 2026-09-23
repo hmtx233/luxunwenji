@@ -9,10 +9,11 @@
  *   - og:image 指向的文件是否真的存在
  *   - JSON-LD 是否可解析、@type 是否符合页面类型
  *   - 每页是否只有一个 <h1>
+ *   - 访问统计埋点（GA_ID 非空时）是否覆盖了全部页面
  *
  * 用法：node scripts/verify-seo.mjs [构建目录，默认 docs]
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { DOCS } from './lib/categories.mjs'
 
@@ -159,6 +160,36 @@ if (existsSync(smPath)) {
     }
   }
   if (!mismatch) ok(`canonical 与 sitemap 一致（sitemap 共 ${locs.size} 条）`)
+}
+
+// --- 访问统计埋点是否覆盖全站 ---
+// GA_ID 从 config.mts 里读，留空时视为「未启用」直接跳过，
+// 免得关掉统计之后校验脚本反而报错。
+const configFile = resolve(DOCS, '.vitepress/config.mts')
+const gaId = existsSync(configFile)
+  ? (readFileSync(configFile, 'utf8').match(/const GA_ID = '([^']*)'/) || [])[1] || ''
+  : ''
+if (!gaId) {
+  ok('访问统计未启用（config.mts 的 GA_ID 为空），跳过埋点检查')
+} else {
+  const pages = []
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = resolve(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (p.endsWith('.html')) pages.push(p)
+    }
+  }
+  walk(DIST)
+  const miss = pages.filter((p) => {
+    const s = readFileSync(p, 'utf8')
+    return !s.includes(gaId) || !s.includes('googletagmanager.com/gtag/js')
+  })
+  if (miss.length) {
+    fail(`${miss.length}/${pages.length} 个页面缺少 ${gaId} 埋点，例：${miss[0].slice(DIST.length + 1)}`)
+  } else {
+    ok(`访问统计 ${gaId} 覆盖全部 ${pages.length} 个页面`)
+  }
 }
 
 console.log(problems === 0 ? '\n全部通过 ✓' : `\n发现 ${problems} 个问题 ✗`)
