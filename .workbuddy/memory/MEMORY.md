@@ -130,6 +130,9 @@ volume: 呐喊
   早期 `gen-stats.mjs` 只去空白，把 Markdown 标记也算进字数，
   导致首页总字数（168.6 万）比实际文本（约 136 万）虚高约 20%，
   且各分类偏差不一（散文含大量 `>` 韵文，虚高最多）。
+- 访问统计：GA4，`config.mts` 的 `GA_ID` + `analyticsTags()` 注入**静态 `head`**
+  （全站每页生效），**留空即完全不输出**；`verify-seo.mjs` 会校验全站覆盖。
+  注意大陆访问者加载不到 `googletagmanager.com`，国内流量需另接统计
 - `robots.txt` 在 `docs/public/`，指向 `https://luxunwenji.com/sitemap.xml`
 - 站长平台验证码走环境变量（不进仓库）：
   `GOOGLE_SITE_VERIFICATION` / `BAIDU_SITE_VERIFICATION` / `BING_SITE_VERIFICATION`
@@ -188,6 +191,10 @@ node node_modules/vitepress/bin/vitepress.js build docs
   改用 PowerShell：`[System.IO.Directory]::Delete($path, $true)`。
 - 改 `.vitepress` 下的 config/theme 后必须重新 build 才能生效，
   `preview` 只是静态伺服 `dist`、`dev` 是客户端渲染（curl 取不到内容）。
+- 卡在打包阶段且 CPU 占用很低时，别等，直接 kill 掉重跑（缓存本来就空则连清缓存都不必）；
+  2026-09-23 实测首次 3 分 38 秒无进展，kill 后重跑 116 秒完成。
+- **扫描 `dist` 产物别用 bash `for` 循环**：学术/书信的篇名含空格会把循环拆断，
+  报一串 `No such file or directory`。用 Node 递归读目录。
 - **删除含 junction 的目录前必须先解除 junction**，否则 `rm -rf` /
   `Remove-Item -Recurse` 会顺着链接删掉真正的 `node_modules`。
   正确做法：`[System.IO.Directory]::Delete($link, $false)` 先删链接，再删目录。
